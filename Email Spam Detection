@@ -1,0 +1,54 @@
+from google.colab import drive
+drive.mount('/content/drive',force_remount=True)
+
+file_path = '/content/drive/MyDrive/spam.csv'
+df_sms = pd.read_csv(file_path, encoding='ISO-8859-1')
+df_sms.head(5)
+# We don't need colummn 3,4,5, hence dropping unnamed 2,3,4 columns
+df_sms.drop(['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'], axis=1, inplace=True)
+df_sms.columns = ['Label', 'Text']  # Rename columns for clarity
+df_sms.head()
+import nltk
+nltk.download('stopwords')
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+stop_words = set(stopwords.words('english'))
+stemmer = PorterStemmer()
+
+def preprocess_text(text):
+    words = nltk.word_tokenize(text)
+    words = [stemmer.stem(word.lower()) for word in words if word.isalnum() and word.lower() not in stop_words]
+    return ' '.join(words)
+
+df_sms['Processed_Text'] = df_sms['Text'].apply(preprocess_text)
+
+# Feature Extraction
+tfidf_vectorizer = TfidfVectorizer(max_features=5000, tokenizer=nltk.word_tokenize)
+X = tfidf_vectorizer.fit_transform(df_sms['Processed_Text']).toarray()
+
+# Now, you have the preprocessed text data (X) and labels (df_sms['Label']) ready for model training.
+# Step 1: Split the data
+X_train, X_test, y_train, y_test = train_test_split(X, df_sms['Label'], test_size=0.2, random_state=42)
+
+# Step 2: Train the model
+model = MultinomialNB()
+model.fit(X_train, y_train)
+
+# Step 3: Make predictions
+y_pred = model.predict(X_test)
+
+# Step 4: Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+classification_report_result = classification_report(y_test, y_pred)
+confusion_matrix_result = confusion_matrix(y_test, y_pred)
+
+print(f"Accuracy: {accuracy:.2f}")
+print("Classification Report:")
+print(classification_report_result)
+print("Confusion Matrix:")
+print(confusion_matrix_result)
